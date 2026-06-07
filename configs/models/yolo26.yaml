@@ -1,0 +1,17 @@
+# YOLOv26 regression configuration
+model: yolo26n.pt
+task: obb
+mode: train
+
+# Training hyperparameters
+epochs: 100
+batch: 16
+imgsz: 640
+lr0: 0.005
+lrf: 0.01
+weight_decay: 0.0005
+patience: 20
+
+# Output
+project: outputs/models
+name: yolo26_run

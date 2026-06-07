@@ -1,0 +1,13 @@
+site_name: Cattle Weight Regression
+theme:
+  name: material
+  palette:
+    scheme: default
+
+nav:
+  - Home: index.md
+  - Usage:
+      - Getting started: usage/getting_started.md
+      - Training: usage/training.md
+  - EDA: eda/index.md
+  - Experiments: experiments/index.md

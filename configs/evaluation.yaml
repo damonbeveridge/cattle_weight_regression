@@ -1,0 +1,15 @@
+# Metrics to compute during evaluation
+metrics:
+  - mae      # mean absolute error (kg)
+  - rmse     # root mean squared error
+  - mape     # mean absolute percentage error
+  - r2       # R² coefficient of determination
+
+# Where to save plots and metric summaries
+output_dir: outputs/evaluation
+save_plots: true
+
+# MLflow
+experiment_name: cattle_weight_regression
+run_tags:
+  stage: evaluation

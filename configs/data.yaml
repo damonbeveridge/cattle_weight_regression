@@ -1,0 +1,16 @@
+# Data paths (relative to project root)
+raw_dir: data/raw
+processed_dir: data/processed
+interim_dir: data/interim
+
+# Label file — CSV with one row per image
+labels_file: data/raw/labels.csv
+image_col: image_path    # column containing relative path to image
+weight_col: weight_kg    # regression target
+
+# Train / val / test split proportions (must sum to 1.0)
+train_split: 0.70
+val_split: 0.15
+test_split: 0.15
+
+seed: 42
