@@ -6,7 +6,7 @@ interim_dir: data/interim
 # Label file — one row per cow
 labels_file: data/raw/dataset.csv
 sku_col: sku          # cow identifier column; used to construct image paths
-weight_col: weight_kg  # regression target
+weight_col: weight_in_kg  # regression target
 
 # Image directory after archive extraction
 # Structure: {image_dir}/{sku}/{sku}_{view}.jpg
