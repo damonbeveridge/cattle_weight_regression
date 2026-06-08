@@ -6,7 +6,7 @@ _Findings from initial dataset exploration._
 
 - Source: https://github.com/bhuiyanmobasshir94/CID
 - N cows: 513
-- N images: 2,052 (4 per cow) plus 15,872 (for the 512 cows with 31 YT images)
+- N images: 2,052 (4 per cow) plus 15,812 (for the 512 cows with around 31 YT images each, there is variation in this amount)
 - Weight range (kg): 150kg - 816kg
 - Image resolution: [800 x 450, 1200 x 675] (same aspect ratio)
 

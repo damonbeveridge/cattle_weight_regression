@@ -1,6 +1,7 @@
 # YOLOv11 regression configuration
+type: yolo
 model: yolo11n.pt   # nano; swap for yolo11s / yolo11m / yolo11l / yolo11x
-task: obb           # oriented bounding-box; adjust to detect for standard bbox
+task: classify      # oriented bounding-box; adjust to detect for standard bbox
 mode: train
 
 # Training hyperparameters

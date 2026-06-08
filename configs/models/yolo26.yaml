@@ -1,6 +1,7 @@
 # YOLOv26 regression configuration
+type: yolo
 model: yolo26n.pt
-task: obb
+task: classify
 mode: train
 
 # Training hyperparameters

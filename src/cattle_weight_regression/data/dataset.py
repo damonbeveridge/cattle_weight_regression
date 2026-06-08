@@ -11,8 +11,9 @@ from torch.utils.data import Dataset
 class CattleWeightDataset(Dataset):
     """Single-image dataset — one row per image view.
 
-    Expects df to have columns: image_path (relative to image_dir), weight_kg.
-    Use loader.expand_to_images() and loader.split_by_cow() to produce the splits.
+    Expects df to have an image_path column (relative to image_dir) and a weight
+    column whose name matches weight_col. Use loader.expand_to_images() and
+    loader.split_by_cow() to produce the split DataFrames.
     """
 
     def __init__(

@@ -1,0 +1,15 @@
+# ResNet50 single-image regression baseline
+type: cnn
+backbone: resnet50
+pretrained: true
+
+# Training
+epochs: 50
+batch_size: 16
+lr: 1.0e-4
+image_size: 640
+# num_workers: 0 is safest on Windows; increase to 4+ on Linux/macOS
+num_workers: 0
+
+# Output directory name under outputs/models/
+name: resnet50_baseline
