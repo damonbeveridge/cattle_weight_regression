@@ -29,6 +29,19 @@ The catch is that Ultralytics classify expects images sorted into class subdirec
 - Use the YOLO backbone purely as a feature extractor in PyTorch (extract embeddings, then train a regression head) — this is cleaner and is what the `CattleWeightCNN` pattern in `pytorch/cnn.py` does with a ResNet backbone.
 - Or use Ultralytics with a custom trainer that overrides the loss to MSE.
 
+### Metrics and evaluation
+
+Here's what each metric now means, so you can reason about them clearly:
+
+| Metric           | Where logged | Unit        | What it measures                                  |
+| ---------------- | ------------ | ----------- | ------------------------------------------------- |
+| `train_loss`     | per epoch    | MSE (kg²)   | per-image training loss — tracks convergence      |
+| `val_loss`       | per epoch    | MSE (kg²)   | per-image val loss — sanity check for overfitting |
+| `val_mae`        | per epoch    | kg          | per-cow MAE — directly comparable to test MAE     |
+| test MAE/RMSE/R² | once at end  | kg/unitless | per-cow, final held-out score                     |
+
+`val_mae` is the number to watch for early stopping and model selection. val_loss is useful for spotting overfitting (divergence from train_loss) but its absolute value doesn't map to test MAE.
+
 ## Future improvements/ideas
 
 **YOLO segmentation pipeline**

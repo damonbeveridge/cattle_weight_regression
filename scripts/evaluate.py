@@ -56,15 +56,15 @@ def _evaluate_cnn(model_cfg: dict, data_cfg: dict, checkpoint: Path, output_dir:
     model.eval()
 
     all_preds, all_skus, all_targets = [], [], []
+    idx = 0
     with torch.no_grad():
-        for i, (images, weights) in enumerate(test_loader):
+        for images, weights in test_loader:
+            batch_len = len(weights)
             preds = model(images.to(device)).cpu().numpy()
-            # Recover the SKU for each item in this batch using the original DataFrame index
-            batch_start = i * batch_size
-            batch_skus = test_df[sku_col].iloc[batch_start : batch_start + len(weights)].tolist()
             all_preds.extend(preds)
-            all_skus.extend(batch_skus)
+            all_skus.extend(test_df[sku_col].iloc[idx : idx + batch_len].tolist())
             all_targets.extend(weights.numpy())
+            idx += batch_len
 
     # Average the 4 per-view predictions for each cow
     results_df = pd.DataFrame({"sku": all_skus, "pred": all_preds, "true": all_targets})

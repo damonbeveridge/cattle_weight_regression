@@ -57,7 +57,16 @@ def _train_cnn(model_cfg: dict, data_cfg: dict) -> None:
     )
     output_dir = Path("outputs/models") / model_cfg.get("name", "cnn_run")
 
-    trainer = RegressionTrainer(model, train_loader, val_loader, lr=float(model_cfg.get("lr", 1e-4)))
+    sku_col: str = data_cfg.get("sku_col", "sku")
+    trainer = RegressionTrainer(
+        model,
+        train_loader,
+        val_loader,
+        lr=float(model_cfg.get("lr", 1e-4)),
+        val_df=val_df,
+        sku_col=sku_col,
+        weight_col=weight_col,
+    )
     trainer.train(epochs=int(model_cfg.get("epochs", 50)), output_dir=output_dir)
     logger.info("Checkpoint saved to %s/model.pth", output_dir)
 
