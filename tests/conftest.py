@@ -8,14 +8,19 @@ import pytest
 
 
 @pytest.fixture
-def sample_labels_csv(tmp_path: Path) -> Path:
-    """A tiny labels CSV with 5 rows for use in tests."""
-    df = pd.DataFrame({
-        "image_path": [f"cow_{i:03d}.jpg" for i in range(5)],
-        "weight_kg": [350.0, 420.5, 510.2, 280.0, 615.8],
+def sample_cow_df() -> pd.DataFrame:
+    """Per-cow DataFrame (10 cows) matching the real labels structure."""
+    return pd.DataFrame({
+        "sku": [f"BLF {1000 + i}" for i in range(10)],
+        "weight_kg": [350.0, 420.5, 510.2, 280.0, 615.8, 390.0, 445.0, 502.5, 310.0, 580.0],
     })
-    path = tmp_path / "labels.csv"
-    df.to_csv(path, index=False)
+
+
+@pytest.fixture
+def sample_labels_csv(tmp_path: Path, sample_cow_df: pd.DataFrame) -> Path:
+    """Write the per-cow DataFrame to a temporary CSV."""
+    path = tmp_path / "dataset.csv"
+    sample_cow_df.to_csv(path, index=False)
     return path
 
 

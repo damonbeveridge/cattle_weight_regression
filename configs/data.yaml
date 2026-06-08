@@ -3,12 +3,18 @@ raw_dir: data/raw
 processed_dir: data/processed
 interim_dir: data/interim
 
-# Label file — CSV with one row per image
-labels_file: data/raw/labels.csv
-image_col: image_path    # column containing relative path to image
-weight_col: weight_kg    # regression target
+# Label file — one row per cow
+labels_file: data/raw/dataset.csv
+sku_col: sku          # cow identifier column; used to construct image paths
+weight_col: weight_kg  # regression target
+
+# Image directory after archive extraction
+# Structure: {image_dir}/{sku}/{sku}_{view}.jpg
+image_dir: data/raw/images
+n_views: 4             # number of views per cow
 
 # Train / val / test split proportions (must sum to 1.0)
+# NOTE: split is performed at the cow level (by sku) to prevent data leakage
 train_split: 0.70
 val_split: 0.15
 test_split: 0.15
