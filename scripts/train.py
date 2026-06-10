@@ -48,8 +48,8 @@ def _train_cnn(model_cfg: dict, data_cfg: dict) -> None:
     pin = torch.cuda.is_available()
     train_ds = CattleWeightDataset(train_df, image_dir, get_transforms_from_config(features_cfg, "train"), weight_col=weight_col)
     val_ds = CattleWeightDataset(val_df, image_dir, get_transforms_from_config(features_cfg, "val"), weight_col=weight_col)
-    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=pin)
-    val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=pin)
+    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=pin, persistent_workers=True)
+    val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=pin, persistent_workers=True)
 
     model = CattleWeightCNN(
         backbone=model_cfg.get("backbone", "resnet50"),
@@ -67,6 +67,7 @@ def _train_cnn(model_cfg: dict, data_cfg: dict) -> None:
         sku_col=sku_col,
         weight_col=weight_col,
     )
+    logger.info("Training device: %s", trainer.device)
     trainer.train(epochs=int(model_cfg.get("epochs", 50)), output_dir=output_dir)
     logger.info("Checkpoint saved to %s/model.pth", output_dir)
 
@@ -87,7 +88,10 @@ def run(model_name: str = "resnet50") -> None:
     if not model_type:
         raise ValueError(f"Model config '{model_name}.yaml' is missing a 'type' field (expected 'cnn' or 'yolo').")
 
-    setup_experiment(eval_cfg.get("experiment_name", "cattle_weight_regression"))
+    setup_experiment(
+        eval_cfg.get("experiment_name", "cattle_weight_regression"),
+        tracking_uri=eval_cfg.get("tracking_uri", "sqlite:///mlruns.db"),
+    )
     logger.info("Training %s (type=%s)", model_name, model_type)
 
     if model_type == "cnn":

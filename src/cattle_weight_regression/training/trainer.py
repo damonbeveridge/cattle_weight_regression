@@ -1,6 +1,7 @@
 """Training loop for PyTorch regression models (single-view and multi-view)."""
 
 from pathlib import Path
+import time
 
 import mlflow
 import mlflow.pytorch
@@ -48,6 +49,8 @@ class RegressionTrainer:
         with mlflow.start_run():
             mlflow.log_params({"epochs": epochs, "lr": self.optimiser.param_groups[0]["lr"]})
             for epoch in range(1, epochs + 1):
+                start_epoch = time.time()
+
                 train_loss = self._train_epoch()
                 val_loss = self._val_epoch()
 
@@ -58,12 +61,13 @@ class RegressionTrainer:
                     log["val_mae"] = val_mae
                     print(
                         f"Epoch {epoch}/{epochs}  "
+                        f"Duration: {time.time()-start_epoch:.2f} seconds  "
                         f"train_loss={train_loss:.4f}  "
                         f"val_loss={val_loss:.4f}  "
                         f"val_mae={val_mae:.2f}kg"
                     )
                 else:
-                    print(f"Epoch {epoch}/{epochs}  train_loss={train_loss:.4f}  val_loss={val_loss:.4f}")
+                    print(f"Epoch {epoch}/{epochs}  Duration: {time.time()-start_epoch:.2f} seconds  train_loss={train_loss:.4f}  val_loss={val_loss:.4f}")
 
                 mlflow.log_metrics(log, step=epoch)
 

@@ -22,3 +22,7 @@ trainer.train(epochs=50, output_dir=Path("outputs/models/resnet50_run"))
 ```
 
 All runs are automatically logged to MLflow.
+
+## Efficient use of GPU/memory
+
+Was originally having troubles with feeling like training was a lot slower than expected. I assumed it wasn't using GPU, turns out it was. The issue was just slow data loading. This has been improved to ~4x training speed by setting 4 workers for data loading, with `persistant_workers=True` in the PyTorch `DataLoader`.

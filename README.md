@@ -1,3 +1,5 @@
+Run NVIDIA-smi with `C:\Windows\System32\nvidia-smi.exe`
+
 # Cattle Weight Estimation
 
 This project takes a [dataset of cattle images](https://github.com/bhuiyanmobasshir94/CID) and produce a deep learning model to estimate the weight of unseen cows.
@@ -78,4 +80,22 @@ This is the most defensible scientifically and produces a model whose inputs a v
 
 
 ## License
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

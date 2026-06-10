@@ -5,7 +5,7 @@ from pathlib import Path
 import mlflow
 
 
-def setup_experiment(name: str, tracking_uri: str = "mlruns") -> str:
+def setup_experiment(name: str, tracking_uri: str = "sqlite:///mlruns.db") -> str:
     mlflow.set_tracking_uri(tracking_uri)
     mlflow.set_experiment(name)
     return mlflow.get_experiment_by_name(name).experiment_id

@@ -20,7 +20,8 @@ data/interim/*
 outputs/*
 !outputs/**/.gitkeep
 
-# MLflow experiment tracking — ignore run data, keep the directory
+# MLflow — SQLite database and artifact runs (both gitignored)
+mlruns.db
 mlruns/*
 !mlruns/.gitkeep
 

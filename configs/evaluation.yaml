@@ -11,5 +11,6 @@ save_plots: true
 
 # MLflow
 experiment_name: cattle_weight_regression
+tracking_uri: sqlite:///mlruns.db   # launch UI with: uv run mlflow ui --backend-store-uri sqlite:///mlruns.db
 run_tags:
   stage: evaluation

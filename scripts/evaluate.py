@@ -87,7 +87,10 @@ def run(model_name: str, checkpoint: Path | None) -> None:
 
     output_dir = Path(eval_cfg["output_dir"])
     output_dir.mkdir(parents=True, exist_ok=True)
-    setup_experiment(eval_cfg.get("experiment_name", "cattle_weight_regression"))
+    setup_experiment(
+        eval_cfg.get("experiment_name", "cattle_weight_regression"),
+        tracking_uri=eval_cfg.get("tracking_uri", "sqlite:///mlruns.db"),
+    )
 
     if model_type == "cnn":
         if checkpoint is None:
