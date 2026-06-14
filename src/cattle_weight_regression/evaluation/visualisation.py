@@ -24,7 +24,7 @@ def plot_predictions(
     if output_path:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(output_path, dpi=150)
-    plt.show()
+    # plt.show()
 
 
 def plot_residuals(
@@ -44,4 +44,4 @@ def plot_residuals(
     if output_path:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(output_path, dpi=150)
-    plt.show()
+    # plt.show()

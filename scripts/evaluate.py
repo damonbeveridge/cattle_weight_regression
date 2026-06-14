@@ -15,7 +15,7 @@ import mlflow
 import numpy as np
 import pandas as pd
 
-from cattle_weight_regression.config import load_config, load_model_config
+from cattle_weight_regression.config import load_config, load_config_from_dir, load_model_config
 from cattle_weight_regression.evaluation.metrics import compute_all
 from cattle_weight_regression.evaluation.visualisation import plot_predictions, plot_residuals
 from cattle_weight_regression.utils.logging import get_logger
@@ -26,7 +26,7 @@ logger = get_logger(__name__)
 PROCESSED_DIR = Path("data/processed")
 
 
-def _evaluate_cnn(model_cfg: dict, data_cfg: dict, checkpoint: Path, output_dir: Path) -> dict:
+def _evaluate_cnn(model_cfg: dict, data_cfg: dict, features_cfg: dict, checkpoint: Path) -> dict:
     import torch
     from torch.utils.data import DataLoader
 
@@ -37,7 +37,6 @@ def _evaluate_cnn(model_cfg: dict, data_cfg: dict, checkpoint: Path, output_dir:
     image_dir = Path(data_cfg["image_dir"])
     weight_col: str = data_cfg["weight_col"]
     sku_col: str = data_cfg.get("sku_col", "sku")
-    features_cfg = load_config("features")
     batch_size: int = model_cfg.get("batch_size", 16)
     num_workers: int = model_cfg.get("num_workers", 0)
 
@@ -77,8 +76,25 @@ def _evaluate_cnn(model_cfg: dict, data_cfg: dict, checkpoint: Path, output_dir:
 
 
 def run(model_name: str, checkpoint: Path | None) -> None:
-    data_cfg = load_config("data")
-    model_cfg = load_model_config(model_name)
+    # Load training-time configs from the model's snapshot dir when available,
+    # so evaluation always uses the same preprocessing and architecture as training.
+    config_dir = checkpoint.parent / "configs" if checkpoint is not None else None
+    if config_dir is not None and config_dir.exists():
+        logger.info("Loading configs from snapshot at %s", config_dir)
+        data_cfg = load_config_from_dir("data", config_dir)
+        model_cfg = load_config_from_dir("model", config_dir)
+        features_cfg = load_config_from_dir("features", config_dir)
+    else:
+        if config_dir is not None:
+            logger.warning(
+                "No config snapshot found at %s — falling back to global configs/. "
+                "Results may be incorrect if configs changed since training.",
+                config_dir,
+            )
+        data_cfg = load_config("data")
+        model_cfg = load_model_config(model_name)
+        features_cfg = load_config("features")
+
     eval_cfg = load_config("evaluation")
 
     model_type: str = model_cfg.get("type", "")
@@ -95,7 +111,7 @@ def run(model_name: str, checkpoint: Path | None) -> None:
     if model_type == "cnn":
         if checkpoint is None:
             raise ValueError("--checkpoint is required for CNN evaluation.")
-        metrics, y_true, y_pred = _evaluate_cnn(model_cfg, data_cfg, checkpoint, output_dir)
+        metrics, y_true, y_pred = _evaluate_cnn(model_cfg, data_cfg, features_cfg, checkpoint)
     elif model_type == "yolo":
         raise NotImplementedError("YOLO evaluation not yet implemented.")
     else:

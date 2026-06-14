@@ -19,3 +19,10 @@ def load_model_config(name: str) -> dict:
     path = CONFIG_DIR / "models" / f"{name}.yaml"
     with path.open() as f:
         return yaml.safe_load(f)
+
+
+def load_config_from_dir(name: str, config_dir: Path) -> dict:
+    """Load a YAML config by stem name from an explicit directory (e.g. a model snapshot dir)."""
+    path = config_dir / f"{name}.yaml"
+    with path.open() as f:
+        return yaml.safe_load(f)

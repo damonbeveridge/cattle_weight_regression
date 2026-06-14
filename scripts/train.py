@@ -9,9 +9,10 @@ Usage:
 """
 
 import argparse
+import shutil
 from pathlib import Path
 
-from cattle_weight_regression.config import load_config, load_model_config
+from cattle_weight_regression.config import CONFIG_DIR, load_config, load_model_config
 from cattle_weight_regression.utils.logging import get_logger
 from cattle_weight_regression.utils.mlflow_utils import setup_experiment
 
@@ -20,7 +21,17 @@ logger = get_logger(__name__)
 PROCESSED_DIR = Path("data/processed")
 
 
-def _train_cnn(model_cfg: dict, data_cfg: dict) -> None:
+def _snapshot_configs(model_name: str, output_dir: Path) -> None:
+    """Copy training-time configs into output_dir/configs/ so evaluation can reproduce them."""
+    snapshot_dir = output_dir / "configs"
+    snapshot_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy(CONFIG_DIR / "data.yaml", snapshot_dir / "data.yaml")
+    shutil.copy(CONFIG_DIR / "features.yaml", snapshot_dir / "features.yaml")
+    shutil.copy(CONFIG_DIR / "models" / f"{model_name}.yaml", snapshot_dir / "model.yaml")
+    logger.info("Config snapshot saved to %s", snapshot_dir)
+
+
+def _train_cnn(model_cfg: dict, data_cfg: dict, output_dir: Path) -> None:
     import pandas as pd
     import torch
     from torch.utils.data import DataLoader
@@ -55,7 +66,6 @@ def _train_cnn(model_cfg: dict, data_cfg: dict) -> None:
         backbone=model_cfg.get("backbone", "resnet50"),
         pretrained=model_cfg.get("pretrained", True),
     )
-    output_dir = Path("outputs/models") / model_cfg.get("name", "cnn_run")
 
     sku_col: str = data_cfg.get("sku_col", "sku")
     trainer = RegressionTrainer(
@@ -95,7 +105,9 @@ def run(model_name: str = "resnet50") -> None:
     logger.info("Training %s (type=%s)", model_name, model_type)
 
     if model_type == "cnn":
-        _train_cnn(model_cfg, data_cfg)
+        output_dir = Path("outputs/models") / model_cfg.get("name", "cnn_run")
+        _snapshot_configs(model_name, output_dir)
+        _train_cnn(model_cfg, data_cfg, output_dir)
     elif model_type == "yolo":
         _train_yolo(model_cfg, data_cfg)
     else:
