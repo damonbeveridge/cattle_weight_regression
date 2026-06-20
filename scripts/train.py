@@ -12,6 +12,8 @@ import argparse
 import shutil
 from pathlib import Path
 
+import yaml
+
 from cattle_weight_regression.config import CONFIG_DIR, load_config, load_model_config
 from cattle_weight_regression.utils.logging import get_logger
 from cattle_weight_regression.utils.mlflow_utils import setup_experiment
@@ -22,11 +24,19 @@ logger = get_logger(__name__)
 PROCESSED_DIR = Path("data/processed")
 
 
-def _snapshot_configs(model_name: str, output_dir: Path) -> None:
-    """Copy training-time configs into output_dir/configs/ so evaluation can reproduce them."""
+def _snapshot_configs(model_name: str, output_dir: Path, data_cfg: dict | None = None) -> None:
+    """Save training-time configs into output_dir/configs/ so evaluation can reproduce them.
+
+    If data_cfg is provided it is written as YAML (capturing any computed values such as
+    output_mean / output_std); otherwise the raw data.yaml file is copied unchanged.
+    """
     snapshot_dir = output_dir / "configs"
     snapshot_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copy(CONFIG_DIR / "data.yaml", snapshot_dir / "data.yaml")
+    if data_cfg is not None:
+        with (snapshot_dir / "data.yaml").open("w") as f:
+            yaml.dump(data_cfg, f, default_flow_style=False, sort_keys=False)
+    else:
+        shutil.copy(CONFIG_DIR / "data.yaml", snapshot_dir / "data.yaml")
     shutil.copy(CONFIG_DIR / "features.yaml", snapshot_dir / "features.yaml")
     shutil.copy(CONFIG_DIR / "models" / f"{model_name}.yaml", snapshot_dir / "model.yaml")
     logger.info("Config snapshot saved to %s", snapshot_dir)
@@ -64,6 +74,15 @@ def _train_cnn(model_cfg: dict, data_cfg: dict, output_dir: Path) -> None:
     val_df = pd.read_csv(PROCESSED_DIR / "labels_val.csv")
     logger.info("Loaded %d train / %d val images", len(train_df), len(val_df))
 
+    output_mean: float | None = None
+    output_std: float | None = None
+    if data_cfg.get("standardise_output", False):
+        output_mean = float(train_df[weight_col].mean())
+        output_std = float(train_df[weight_col].std())
+        data_cfg["output_mean"] = output_mean
+        data_cfg["output_std"] = output_std
+        logger.info("Output standardisation: mean=%.4f  std=%.4f", output_mean, output_std)
+
     pin = torch.cuda.is_available()
     train_ds = CattleWeightDataset(train_df, image_dir, get_transforms_from_config(features_cfg, "train"), weight_col=weight_col)
     val_ds = CattleWeightDataset(val_df, image_dir, get_transforms_from_config(features_cfg, "val"), weight_col=weight_col)
@@ -89,6 +108,8 @@ def _train_cnn(model_cfg: dict, data_cfg: dict, output_dir: Path) -> None:
         weight_col=weight_col,
         data_seed=data_seed,
         model_seed=model_seed,
+        output_mean=output_mean,
+        output_std=output_std,
     )
     logger.info("Training device: %s", trainer.device)
     trainer.train(epochs=int(model_cfg.get("epochs", 50)), output_dir=output_dir)
@@ -119,8 +140,8 @@ def run(model_name: str = "resnet50") -> None:
 
     if model_type == "cnn":
         output_dir = Path("outputs/models") / model_cfg.get("name", "cnn_run")
-        _snapshot_configs(model_name, output_dir)
         _train_cnn(model_cfg, data_cfg, output_dir)
+        _snapshot_configs(model_name, output_dir, data_cfg=data_cfg)
     elif model_type == "yolo":
         _train_yolo(model_cfg, data_cfg)
     else:

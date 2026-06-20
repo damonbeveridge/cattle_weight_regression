@@ -68,6 +68,11 @@ def _evaluate_cnn(model_cfg: dict, data_cfg: dict, features_cfg: dict, checkpoin
             all_targets.extend(weights.numpy())
             idx += batch_len
 
+    output_mean = data_cfg.get("output_mean")
+    output_std = data_cfg.get("output_std")
+    if output_mean is not None:
+        all_preds = [p * output_std + output_mean for p in all_preds]
+
     # Average the 4 per-view predictions for each cow
     results_df = pd.DataFrame({"sku": all_skus, "pred": all_preds, "true": all_targets})
     cow_df = results_df.groupby("sku").agg(pred=("pred", "mean"), true=("true", "first")).reset_index()
@@ -122,8 +127,8 @@ def run(model_name: str, checkpoint: Path | None) -> None:
 
     logger.info("Test metrics (per-cow): %s", metrics)
 
-    plot_predictions(y_true, y_pred, output_dir / f"{model_name}_pred_vs_actual.png")
-    plot_residuals(y_true, y_pred, output_dir / f"{model_name}_residuals.png")
+    plot_predictions(y_true, y_pred, output_dir / f"{model_cfg.get("name", model_name)}-pred_vs_actual.png")
+    plot_residuals(y_true, y_pred, output_dir / f"{model_cfg.get("name", model_name)}-residuals.png")
 
     with mlflow.start_run():
         mlflow.log_params({"model": model_name, "checkpoint": str(checkpoint)})
