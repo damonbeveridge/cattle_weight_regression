@@ -11,6 +11,7 @@ import torch
 import torch.nn as nn
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 
 class RegressionTrainer:
@@ -60,7 +61,7 @@ class RegressionTrainer:
             for epoch in range(1, epochs + 1):
                 start_epoch = time.time()
 
-                train_loss = self._train_epoch()
+                train_loss = self._train_epoch(epoch, epochs, )
                 val_loss = self._val_epoch()
 
                 log = {"train_loss": train_loss, "val_loss": val_loss}
@@ -89,9 +90,10 @@ class RegressionTrainer:
             return [v.to(self.device) for v in batch_input]
         return batch_input.to(self.device)
 
-    def _train_epoch(self) -> float:
+    def _train_epoch(self, epoch, num_epochs) -> float:
         self.model.train()
         total = 0.0
+        loop = tqdm(total=len(self.train_loader), desc=f"Epoch [{epoch}/{num_epochs}]", leave=False, ncols=90)
         for images, weights in self.train_loader:
             images = self._to_device(images)
             weights = weights.float().to(self.device)
@@ -108,6 +110,15 @@ class RegressionTrainer:
             # This means samples from a small batch at the end of a dataset 
             # will be equally weighted
             total += loss.item() * len(weights)
+
+            # Update the progress bar postfix with real-time statistics
+            loop.set_postfix(loss=loss.item() * len(weights), avg_loss=total)
+            # FORCE STEP: Manually push the progress bar forward by 1 step
+            loop.update(1)
+        
+        # Always close manual tqdm bars at the end of the loop to avoid glitches
+        loop.close()
+
         return total / len(self.train_loader.dataset)
 
     def _val_epoch(self) -> float:
