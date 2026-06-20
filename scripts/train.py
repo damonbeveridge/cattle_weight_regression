@@ -15,6 +15,7 @@ from pathlib import Path
 from cattle_weight_regression.config import CONFIG_DIR, load_config, load_model_config
 from cattle_weight_regression.utils.logging import get_logger
 from cattle_weight_regression.utils.mlflow_utils import setup_experiment
+from cattle_weight_regression.utils.seed import seed_data_rng, seed_model_rng, seed_worker
 
 logger = get_logger(__name__)
 
@@ -41,6 +42,13 @@ def _train_cnn(model_cfg: dict, data_cfg: dict, output_dir: Path) -> None:
     from cattle_weight_regression.models.pytorch.cnn import CattleWeightCNN
     from cattle_weight_regression.training.trainer import RegressionTrainer
 
+    data_seed: int = data_cfg.get("seed", 42)
+    model_seed: int = model_cfg.get("seed", 42)
+
+    # Seed data-pipeline RNG (augmentation + batch ordering) and get a
+    # seeded generator for the DataLoader shuffle.
+    g = seed_data_rng(data_seed)
+
     image_dir = Path(data_cfg["image_dir"])
     weight_col: str = data_cfg["weight_col"]
     features_cfg = load_config("features")
@@ -59,9 +67,12 @@ def _train_cnn(model_cfg: dict, data_cfg: dict, output_dir: Path) -> None:
     pin = torch.cuda.is_available()
     train_ds = CattleWeightDataset(train_df, image_dir, get_transforms_from_config(features_cfg, "train"), weight_col=weight_col)
     val_ds = CattleWeightDataset(val_df, image_dir, get_transforms_from_config(features_cfg, "val"), weight_col=weight_col)
-    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=pin, persistent_workers=True)
-    val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=pin, persistent_workers=True)
+    train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=pin, persistent_workers=True, generator=g, worker_init_fn=seed_worker)
+    val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=pin, persistent_workers=True, worker_init_fn=seed_worker)
 
+    # Seed PyTorch RNG immediately before model creation so weight
+    # initialisation is deterministic and independent of the data seed.
+    seed_model_rng(model_seed)
     model = CattleWeightCNN(
         backbone=model_cfg.get("backbone", "resnet50"),
         pretrained=model_cfg.get("pretrained", True),
@@ -76,6 +87,8 @@ def _train_cnn(model_cfg: dict, data_cfg: dict, output_dir: Path) -> None:
         val_df=val_df,
         sku_col=sku_col,
         weight_col=weight_col,
+        data_seed=data_seed,
+        model_seed=model_seed,
     )
     logger.info("Training device: %s", trainer.device)
     trainer.train(epochs=int(model_cfg.get("epochs", 50)), output_dir=output_dir)

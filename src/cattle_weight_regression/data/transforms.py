@@ -20,6 +20,7 @@ def get_train_transforms(
     mean: list[float] = _IMAGENET_MEAN,
     std: list[float] = _IMAGENET_STD,
     horizontal_flip: float = 0.5,
+    vertical_flip: float = 0.5,
     rotation_degrees: int = 0,
     brightness_jitter: float = 0.0,
     contrast_jitter: float = 0.0,
@@ -29,6 +30,8 @@ def get_train_transforms(
 
     if horizontal_flip > 0:
         pipeline.append(transforms.RandomHorizontalFlip(p=horizontal_flip))
+    if vertical_flip > 0:
+        pipeline.append(transforms.RandomHorizontalFlip(p=vertical_flip))
     if rotation_degrees > 0:
         pipeline.append(transforms.RandomRotation(degrees=rotation_degrees))
     if brightness_jitter > 0 or contrast_jitter > 0:
@@ -74,6 +77,7 @@ def get_transforms_from_config(cfg: dict, mode: str) -> transforms.Compose:
         mean=mean,
         std=std,
         horizontal_flip=aug.get("horizontal_flip", 0.0) if aug_enabled else 0.0,
+        vertical_flip=aug.get("vertical_flip", 0.0) if aug_enabled else 0.0,
         rotation_degrees=aug.get("rotation_degrees", 0) if aug_enabled else 0,
         brightness_jitter=aug.get("brightness_jitter", 0.0) if aug_enabled else 0.0,
         contrast_jitter=aug.get("contrast_jitter", 0.0) if aug_enabled else 0.0,

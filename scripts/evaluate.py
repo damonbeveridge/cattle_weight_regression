@@ -49,8 +49,11 @@ def _evaluate_cnn(model_cfg: dict, data_cfg: dict, features_cfg: dict, checkpoin
     test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    # For loading PyTorch model
     model = CattleWeightCNN(backbone=model_cfg.get("backbone", "resnet50"), pretrained=False)
     model.load_state_dict(torch.load(checkpoint, map_location=device, weights_only=True))
+    # For loading model through MLFlow so they link in the MLFlow UI
+    # model = mlflow.pytorch.load_model(model_uri=model_cfg.get("name", "cnn_run"))
     model.to(device)
     model.eval()
 

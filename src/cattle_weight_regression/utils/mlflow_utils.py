@@ -8,6 +8,8 @@ import mlflow
 def setup_experiment(name: str, tracking_uri: str = "sqlite:///mlruns.db") -> str:
     mlflow.set_tracking_uri(tracking_uri)
     mlflow.set_experiment(name)
+    mlflow.config.enable_system_metrics_logging()
+    mlflow.config.set_system_metrics_sampling_interval(3)
     return mlflow.get_experiment_by_name(name).experiment_id
 
 

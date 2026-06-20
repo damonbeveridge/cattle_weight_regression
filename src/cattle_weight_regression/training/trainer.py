@@ -24,6 +24,8 @@ class RegressionTrainer:
         val_df: pd.DataFrame | None = None,
         sku_col: str = "sku",
         weight_col: str = "weight_kg",
+        data_seed: int | None = None,
+        model_seed: int | None = None,
     ):
         """
         Args:
@@ -42,12 +44,19 @@ class RegressionTrainer:
         self.val_df = val_df
         self.sku_col = sku_col
         self.weight_col = weight_col
+        self.data_seed = data_seed
+        self.model_seed = model_seed
         self.model.to(self.device)
 
     def train(self, epochs: int, output_dir: Path) -> None:
         output_dir.mkdir(parents=True, exist_ok=True)
         with mlflow.start_run():
-            mlflow.log_params({"epochs": epochs, "lr": self.optimiser.param_groups[0]["lr"]})
+            params = {"epochs": epochs, "lr": self.optimiser.param_groups[0]["lr"]}
+            if self.data_seed is not None:
+                params["data_seed"] = self.data_seed
+            if self.model_seed is not None:
+                params["model_seed"] = self.model_seed
+            mlflow.log_params(params)
             for epoch in range(1, epochs + 1):
                 start_epoch = time.time()
 
@@ -72,7 +81,7 @@ class RegressionTrainer:
                 mlflow.log_metrics(log, step=epoch)
 
             torch.save(self.model.state_dict(), output_dir / "model.pth")
-            mlflow.pytorch.log_model(self.model, "model")
+            mlflow.pytorch.log_model(self.model, str(output_dir).split("\\")[-1].split('.')[0])
 
     def _to_device(self, batch_input):
         """Move images to device, handling both single tensors and lists of tensors."""
@@ -86,10 +95,18 @@ class RegressionTrainer:
         for images, weights in self.train_loader:
             images = self._to_device(images)
             weights = weights.float().to(self.device)
+            
+            # Forward pass
             self.optimiser.zero_grad()
             loss = self.criterion(self.model(images), weights)
+
+            # Backward pass
             loss.backward()
             self.optimiser.step()
+
+            # Multiply by batch size so it is the batch's total loss.
+            # This means samples from a small batch at the end of a dataset 
+            # will be equally weighted
             total += loss.item() * len(weights)
         return total / len(self.train_loader.dataset)
 

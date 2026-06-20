@@ -17,6 +17,8 @@ dependencies = [
     "torch>=2.12.0",
     "torchvision>=0.27.0",
     "tqdm>=4.68.1",
+    "psutil>=7.2.2",
+    "nvidia-ml-py>=13.610.43",
 ]
 
 [dependency-groups]

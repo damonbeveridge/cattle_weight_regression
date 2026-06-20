@@ -10,5 +10,8 @@ lr: 1.0e-4
 # num_workers: 0 is safest on Windows; increase to 4+ on Linux/macOS
 num_workers: 4
 
+# Reproducibility
+seed: 42
+
 # Output directory name under outputs/models/
 name: resnet50_ogimagesize
