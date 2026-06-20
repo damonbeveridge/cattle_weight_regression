@@ -27,6 +27,8 @@ class RegressionTrainer:
         weight_col: str = "weight_kg",
         data_seed: int | None = None,
         model_seed: int | None = None,
+        output_mean: float | None = None,
+        output_std: float | None = None,
     ):
         """
         Args:
@@ -47,6 +49,8 @@ class RegressionTrainer:
         self.weight_col = weight_col
         self.data_seed = data_seed
         self.model_seed = model_seed
+        self.output_mean = output_mean
+        self.output_std = output_std
         self.model.to(self.device)
 
     def train(self, epochs: int, output_dir: Path) -> None:
@@ -57,6 +61,9 @@ class RegressionTrainer:
                 params["data_seed"] = self.data_seed
             if self.model_seed is not None:
                 params["model_seed"] = self.model_seed
+            if self.output_mean is not None:
+                params["output_mean"] = self.output_mean
+                params["output_std"] = self.output_std
             mlflow.log_params(params)
             for epoch in range(1, epochs + 1):
                 start_epoch = time.time()
@@ -90,6 +97,9 @@ class RegressionTrainer:
             return [v.to(self.device) for v in batch_input]
         return batch_input.to(self.device)
 
+    def _normalise(self, weights: "torch.Tensor") -> "torch.Tensor":
+        return (weights - self.output_mean) / self.output_std
+
     def _train_epoch(self, epoch, num_epochs) -> float:
         self.model.train()
         total = 0.0
@@ -97,7 +107,9 @@ class RegressionTrainer:
         for images, weights in self.train_loader:
             images = self._to_device(images)
             weights = weights.float().to(self.device)
-            
+            if self.output_mean is not None:
+                weights = self._normalise(weights)
+
             # Forward pass
             self.optimiser.zero_grad()
             loss = self.criterion(self.model(images), weights)
@@ -122,13 +134,15 @@ class RegressionTrainer:
         return total / len(self.train_loader.dataset)
 
     def _val_epoch(self) -> float:
-        """Per-image MSE loss — used for convergence tracking."""
+        """Per-image MSE loss in the model's output space — used for convergence tracking."""
         self.model.eval()
         total = 0.0
         with torch.no_grad():
             for images, weights in self.val_loader:
                 images = self._to_device(images)
                 weights = weights.float().to(self.device)
+                if self.output_mean is not None:
+                    weights = self._normalise(weights)
                 total += self.criterion(self.model(images), weights).item() * len(weights)
         return total / len(self.val_loader.dataset)
 
@@ -145,6 +159,8 @@ class RegressionTrainer:
             for images, weights in self.val_loader:
                 batch_len = len(weights)
                 preds = self.model(self._to_device(images)).cpu().numpy()
+                if self.output_mean is not None:
+                    preds = preds * self.output_std + self.output_mean
                 all_preds.extend(preds)
                 all_skus.extend(self.val_df[self.sku_col].iloc[idx : idx + batch_len].tolist())
                 all_targets.extend(self.val_df[self.weight_col].iloc[idx : idx + batch_len].tolist())

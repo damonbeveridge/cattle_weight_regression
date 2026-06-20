@@ -20,3 +20,8 @@ val_split: 0.15
 test_split: 0.15
 
 seed: 42
+
+# Output standardisation — normalises regression targets to mean=0, std=1 during training.
+# output_mean and output_std are computed from the training split at train time and written
+# into the model config snapshot so evaluate.py can reverse the transform at inference.
+standardise_output: true
