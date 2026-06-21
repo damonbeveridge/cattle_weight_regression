@@ -14,4 +14,4 @@ num_workers: 4
 seed: 42
 
 # Output directory name under outputs/models/
-name: resnet18_yes_standardised_output
+name: resnet18
