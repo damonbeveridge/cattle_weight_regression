@@ -1,5 +1,6 @@
 # ResNet34 single-image regression baseline
 type: cnn
+architecture: single-view
 backbone: resnet34
 pretrained: true
 

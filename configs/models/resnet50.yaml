@@ -1,5 +1,6 @@
 # ResNet50 single-image regression baseline
 type: cnn
+architecture: single-view
 backbone: resnet50
 pretrained: true
 

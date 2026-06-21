@@ -1,6 +1,7 @@
-# ResNet18 single-image regression baseline
+# ResNet18 multi-view late-fusion model — all 4 views processed together per cow
 type: cnn
-architecture: single-view
+architecture: multi-view
+n_views: 4
 backbone: resnet18
 pretrained: true
 
@@ -15,4 +16,4 @@ num_workers: 4
 seed: 42
 
 # Output directory name under outputs/models/
-name: resnet18
+name: resnet18_multiview

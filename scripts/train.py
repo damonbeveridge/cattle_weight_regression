@@ -47,9 +47,9 @@ def _train_cnn(model_cfg: dict, data_cfg: dict, output_dir: Path) -> None:
     import torch
     from torch.utils.data import DataLoader
 
-    from cattle_weight_regression.data.dataset import CattleWeightDataset
+    from cattle_weight_regression.data.dataset import CattleWeightDataset, MultiViewCattleDataset
     from cattle_weight_regression.data.transforms import get_transforms_from_config
-    from cattle_weight_regression.models.pytorch.cnn import CattleWeightCNN
+    from cattle_weight_regression.models.pytorch.cnn import CattleWeightCNN, MultiViewCattleWeightCNN
     from cattle_weight_regression.training.trainer import RegressionTrainer
 
     data_seed: int = data_cfg.get("seed", 42)
@@ -61,9 +61,12 @@ def _train_cnn(model_cfg: dict, data_cfg: dict, output_dir: Path) -> None:
 
     image_dir = Path(data_cfg["image_dir"])
     weight_col: str = data_cfg["weight_col"]
+    sku_col: str = data_cfg.get("sku_col", "sku")
     features_cfg = load_config("features")
     batch_size: int = model_cfg.get("batch_size", 16)
     num_workers: int = model_cfg.get("num_workers", 0)
+    architecture: str = model_cfg.get("architecture", "single-view")
+    n_views: int = model_cfg.get("n_views", 4)
 
     for split in ("train", "val"):
         path = PROCESSED_DIR / f"labels_{split}.csv"
@@ -84,26 +87,42 @@ def _train_cnn(model_cfg: dict, data_cfg: dict, output_dir: Path) -> None:
         logger.info("Output standardisation: mean=%.4f  std=%.4f", output_mean, output_std)
 
     pin = torch.cuda.is_available()
-    train_ds = CattleWeightDataset(train_df, image_dir, get_transforms_from_config(features_cfg, "train"), weight_col=weight_col)
-    val_ds = CattleWeightDataset(val_df, image_dir, get_transforms_from_config(features_cfg, "val"), weight_col=weight_col)
+    train_transform = get_transforms_from_config(features_cfg, "train")
+    val_transform = get_transforms_from_config(features_cfg, "val")
+
+    if architecture == "multi-view":
+        logger.info("Architecture: multi-view (%d views, late-fusion)", n_views)
+        train_ds = MultiViewCattleDataset(train_df, image_dir, n_views=n_views, transform=train_transform, sku_col=sku_col, weight_col=weight_col)
+        val_ds   = MultiViewCattleDataset(val_df,   image_dir, n_views=n_views, transform=val_transform,   sku_col=sku_col, weight_col=weight_col)
+        # val_df passed to the trainer must be one row per cow so positional
+        # indexing lines up with the one-prediction-per-cow model output.
+        val_df_for_trainer = val_df.drop_duplicates(subset=[sku_col]).reset_index(drop=True)
+        seed_model_rng(model_seed)
+        model = MultiViewCattleWeightCNN(
+            backbone=model_cfg.get("backbone", "resnet50"),
+            n_views=n_views,
+            pretrained=model_cfg.get("pretrained", True),
+        )
+    else:
+        logger.info("Architecture: single-view")
+        train_ds = CattleWeightDataset(train_df, image_dir, train_transform, weight_col=weight_col)
+        val_ds   = CattleWeightDataset(val_df,   image_dir, val_transform,   weight_col=weight_col)
+        val_df_for_trainer = val_df
+        seed_model_rng(model_seed)
+        model = CattleWeightCNN(
+            backbone=model_cfg.get("backbone", "resnet50"),
+            pretrained=model_cfg.get("pretrained", True),
+        )
+
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=pin, persistent_workers=True, generator=g, worker_init_fn=seed_worker)
-    val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=pin, persistent_workers=True, worker_init_fn=seed_worker)
+    val_loader   = DataLoader(val_ds,   batch_size=batch_size, shuffle=False, num_workers=num_workers, pin_memory=pin, persistent_workers=True, worker_init_fn=seed_worker)
 
-    # Seed PyTorch RNG immediately before model creation so weight
-    # initialisation is deterministic and independent of the data seed.
-    seed_model_rng(model_seed)
-    model = CattleWeightCNN(
-        backbone=model_cfg.get("backbone", "resnet50"),
-        pretrained=model_cfg.get("pretrained", True),
-    )
-
-    sku_col: str = data_cfg.get("sku_col", "sku")
     trainer = RegressionTrainer(
         model,
         train_loader,
         val_loader,
         lr=float(model_cfg.get("lr", 1e-4)),
-        val_df=val_df,
+        val_df=val_df_for_trainer,
         sku_col=sku_col,
         weight_col=weight_col,
         data_seed=data_seed,

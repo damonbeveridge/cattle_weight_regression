@@ -30,30 +30,40 @@ def _evaluate_cnn(model_cfg: dict, data_cfg: dict, features_cfg: dict, checkpoin
     import torch
     from torch.utils.data import DataLoader
 
-    from cattle_weight_regression.data.dataset import CattleWeightDataset
+    from cattle_weight_regression.data.dataset import CattleWeightDataset, MultiViewCattleDataset
     from cattle_weight_regression.data.transforms import get_transforms_from_config
-    from cattle_weight_regression.models.pytorch.cnn import CattleWeightCNN
+    from cattle_weight_regression.models.pytorch.cnn import CattleWeightCNN, MultiViewCattleWeightCNN
 
     image_dir = Path(data_cfg["image_dir"])
     weight_col: str = data_cfg["weight_col"]
     sku_col: str = data_cfg.get("sku_col", "sku")
     batch_size: int = model_cfg.get("batch_size", 16)
     num_workers: int = model_cfg.get("num_workers", 0)
+    architecture: str = model_cfg.get("architecture", "single-view")
+    n_views: int = model_cfg.get("n_views", 4)
 
     test_path = PROCESSED_DIR / "labels_test.csv"
     if not test_path.exists():
         raise FileNotFoundError(f"{test_path} not found — run scripts/prepare_data.py first.")
 
     test_df = pd.read_csv(test_path)
-    test_ds = CattleWeightDataset(test_df, image_dir, get_transforms_from_config(features_cfg, "val"), weight_col=weight_col)
-    test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers)
-
+    val_transform = get_transforms_from_config(features_cfg, "val")
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    # For loading PyTorch model
-    model = CattleWeightCNN(backbone=model_cfg.get("backbone", "resnet50"), pretrained=False)
+
+    if architecture == "multi-view":
+        logger.info("Architecture: multi-view (%d views, late-fusion)", n_views)
+        test_df_eval = test_df.drop_duplicates(subset=[sku_col]).reset_index(drop=True)
+        test_ds = MultiViewCattleDataset(test_df, image_dir, n_views=n_views, transform=val_transform, sku_col=sku_col, weight_col=weight_col)
+        test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+        model = MultiViewCattleWeightCNN(backbone=model_cfg.get("backbone", "resnet50"), n_views=n_views, pretrained=False)
+    else:
+        logger.info("Architecture: single-view")
+        test_df_eval = test_df
+        test_ds = CattleWeightDataset(test_df, image_dir, val_transform, weight_col=weight_col)
+        test_loader = DataLoader(test_ds, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+        model = CattleWeightCNN(backbone=model_cfg.get("backbone", "resnet50"), pretrained=False)
+
     model.load_state_dict(torch.load(checkpoint, map_location=device, weights_only=True))
-    # For loading model through MLFlow so they link in the MLFlow UI
-    # model = mlflow.pytorch.load_model(model_uri=model_cfg.get("name", "cnn_run"))
     model.to(device)
     model.eval()
 
@@ -62,9 +72,13 @@ def _evaluate_cnn(model_cfg: dict, data_cfg: dict, features_cfg: dict, checkpoin
     with torch.no_grad():
         for images, weights in test_loader:
             batch_len = len(weights)
-            preds = model(images.to(device)).cpu().numpy()
+            if isinstance(images, (list, tuple)) and isinstance(images[0], torch.Tensor):
+                images = [v.to(device) for v in images]
+            else:
+                images = images.to(device)
+            preds = model(images).cpu().numpy()
             all_preds.extend(preds)
-            all_skus.extend(test_df[sku_col].iloc[idx : idx + batch_len].tolist())
+            all_skus.extend(test_df_eval[sku_col].iloc[idx : idx + batch_len].tolist())
             all_targets.extend(weights.numpy())
             idx += batch_len
 
@@ -73,10 +87,15 @@ def _evaluate_cnn(model_cfg: dict, data_cfg: dict, features_cfg: dict, checkpoin
     if output_mean is not None:
         all_preds = [p * output_std + output_mean for p in all_preds]
 
-    # Average the 4 per-view predictions for each cow
-    results_df = pd.DataFrame({"sku": all_skus, "pred": all_preds, "true": all_targets})
-    cow_df = results_df.groupby("sku").agg(pred=("pred", "mean"), true=("true", "first")).reset_index()
-    logger.info("Evaluated %d images → %d cows", len(results_df), len(cow_df))
+    if architecture == "multi-view":
+        # Model already outputs one prediction per cow — no averaging needed.
+        cow_df = pd.DataFrame({"sku": all_skus, "pred": all_preds, "true": all_targets})
+        logger.info("Evaluated %d cows", len(cow_df))
+    else:
+        # Average the per-view predictions for each cow.
+        results_df = pd.DataFrame({"sku": all_skus, "pred": all_preds, "true": all_targets})
+        cow_df = results_df.groupby("sku").agg(pred=("pred", "mean"), true=("true", "first")).reset_index()
+        logger.info("Evaluated %d images → %d cows", len(results_df), len(cow_df))
 
     y_true = cow_df["true"].to_numpy()
     y_pred = cow_df["pred"].to_numpy()
