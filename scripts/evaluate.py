@@ -87,6 +87,13 @@ def _evaluate_cnn(model_cfg: dict, data_cfg: dict, features_cfg: dict, checkpoin
     if output_mean is not None:
         all_preds = [p * output_std + output_mean for p in all_preds]
 
+    # Saves predictions for each angle
+    # new_df = pd.DataFrame()
+    # new_df["all_preds"] = all_preds
+    # new_df["all_skus"] = all_skus
+    # new_df["all_targets"] = all_targets
+    # new_df.to_csv(f"./outputs/predictions/{model_cfg.get("name")}.csv")
+
     if architecture == "multi-view":
         # Model already outputs one prediction per cow — no averaging needed.
         cow_df = pd.DataFrame({"sku": all_skus, "pred": all_preds, "true": all_targets})

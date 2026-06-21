@@ -52,6 +52,16 @@ def run(archive: Path | None = None) -> None:
         df[cfg["weight_col"]].mean(),
     )
 
+    # Remove outlier high-mass cows that potentially hamper training ability
+    # df = df[df[cfg["weight_col"]] < 350]
+    # logger.info("Removed outlier high mass cows")
+    # logger.info(
+    #     "Weight range: %.1f – %.1f kg  |  mean: %.1f kg",
+    #     df[cfg["weight_col"]].min(),
+    #     df[cfg["weight_col"]].max(),
+    #     df[cfg["weight_col"]].mean(),
+    # )
+
     # 3. Split by cow (prevents leakage), then expand to per-image rows
     train_cows, val_cows, test_cows = split_by_cow(df, sku_col=sku_col, train=train_split, val=val_split, seed=seed)
     logger.info("Split: %d train / %d val / %d test cows", len(train_cows), len(val_cows), len(test_cows))
